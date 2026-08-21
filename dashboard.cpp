@@ -337,6 +337,8 @@ private:
     QVBoxLayout *m_layout{nullptr};
 };
 
+#include "utils.h"
+
 // ---------------------------------------------------------------------------
 // Dashboard Implementation
 // ---------------------------------------------------------------------------
@@ -346,21 +348,7 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
 {
     setWindowTitle("NOREN | 暖簾 — Stats");
 
-    QIcon appIcon;
-    const QStringList iconCandidates = {
-        ":/assets/noren.jpg",
-        ":/noren.jpg",
-        "assets/noren.jpg",
-        "noren.jpg",
-        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
-        QCoreApplication::applicationDirPath() + "/noren.jpg"
-    };
-    for (const QString &path : iconCandidates) {
-        if (QFile::exists(path)) {
-            appIcon = QIcon(path);
-            break;
-        }
-    }
+    const QIcon appIcon = Utils::loadIcon("noren.jpg");
     if (!appIcon.isNull()) {
         setWindowIcon(appIcon);
     }
@@ -454,22 +442,7 @@ void Dashboard::setupUi()
     sideLayout->setSpacing(6);
 
     // Optional Logo Pixmap
-    QPixmap logoPix;
-    const QStringList logoCandidates = {
-        ":/assets/noren.jpg",
-        ":/noren.jpg",
-        "assets/noren.jpg",
-        "noren.jpg",
-        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
-        QCoreApplication::applicationDirPath() + "/noren.jpg"
-    };
-    for (const QString &path : logoCandidates) {
-        if (QFile::exists(path)) {
-            logoPix.load(path);
-            break;
-        }
-    }
-
+    const QPixmap logoPix = Utils::loadPixmap("noren.jpg");
     if (!logoPix.isNull()) {
         auto *logoLabel = new QLabel(sideNav);
         logoLabel->setPixmap(logoPix.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));

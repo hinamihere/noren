@@ -46,7 +46,9 @@ public:
     bool updateIntervalEnd(qint64 id, qint64 ended);
 
     QList<AppUsageSummary> getReportForToday();
+    QList<AppUsageSummary> getReportForToday(const QSqlDatabase &db);
     QList<DayUsageSummary> getWeeklyUsage();
+    QList<DayUsageSummary> getWeeklyUsage(const QSqlDatabase &db);
     void requestReportForToday();
     void requestDashboardData();
     void recoverOrphanedIntervals();

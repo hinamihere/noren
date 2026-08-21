@@ -2,10 +2,10 @@
 #include "dashboard.h"
 #include "eventtracker.h"
 #include "database.h"
+#include "utils.h"
 
 #include <QApplication>
 #include <QDebug>
-#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -26,25 +26,7 @@ Noren::Noren(QObject *parent)
     connect(m_focusTracker.get(), &EventTracker::focusChanged, this, &Noren::onFocusChanged);
 
     m_trayIcon = new QSystemTrayIcon(this);
-    QIcon appIcon;
-    const QStringList iconCandidates = {
-        ":/assets/noren.jpg",
-        ":/noren.jpg",
-        "assets/noren.jpg",
-        "noren.jpg",
-        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
-        QCoreApplication::applicationDirPath() + "/noren.jpg"
-    };
-    for (const QString &path : iconCandidates) {
-        if (QFile::exists(path)) {
-            appIcon = QIcon(path);
-            break;
-        }
-    }
-    if (appIcon.isNull()) {
-        appIcon = QIcon::fromTheme("dialog-information");
-    }
-    m_trayIcon->setIcon(appIcon);
+    m_trayIcon->setIcon(Utils::loadIcon("noren.jpg", "dialog-information"));
     m_trayIcon->setToolTip("noren");
 
     auto *menu = new QMenu();

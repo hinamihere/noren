@@ -13,6 +13,7 @@ qt_add_executable(noren
     noren.cpp
     noren.h
     dashboard.h dashboard.cpp
+    utils.h
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/noren.jpg")
