@@ -5,9 +5,10 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
-#include <QPainterPath>
 #include <QProgressBar>
-#include <QPushButton>
+#include <QResizeEvent>
+#include <QScrollBar>
+#include <QScrollArea>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -20,7 +21,8 @@ public:
     explicit ZenMeterWidget(QWidget *parent = nullptr)
         : QWidget(parent)
     {
-        setMinimumSize(130, 130);
+        setMinimumSize(80, 80);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
 
     void setPercentage(int percent)
@@ -35,7 +37,9 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        const int size = std::min(width(), height()) - 16;
+        const int size = std::min(width(), height()) - 10;
+        if (size <= 10) return;
+
         const QRectF rect((width() - size) / 2.0, (height() - size) / 2.0, size, size);
         const QPointF center = rect.center();
 
@@ -48,9 +52,8 @@ protected:
 
         // 2. Active Clay Arc
         if (m_percent > 0) {
-            QPen arcPen(QColor(230, 138, 92), 3.5, Qt::SolidLine, Qt::RoundCap);
+            QPen arcPen(QColor(230, 138, 92), 3.0, Qt::SolidLine, Qt::RoundCap);
             p.setPen(arcPen);
-            // In Qt, 0 deg is 3 o'clock, so start at 90 deg (12 o'clock)
             const int startAngle = 90 * 16;
             const int spanAngle = -static_cast<int>((m_percent / 100.0) * 360.0 * 16);
             p.drawArc(rect.adjusted(2, 2, -2, -2), startAngle, spanAngle);
@@ -60,7 +63,7 @@ protected:
         p.setPen(QColor(230, 226, 215));
         QFont font = p.font();
         font.setBold(true);
-        font.setPixelSize(std::max(16, size / 5));
+        font.setPixelSize(std::max(12, size / 5));
         p.setFont(font);
 
         const QString text = QString::number(m_percent) + "%";
@@ -80,7 +83,8 @@ public:
     explicit CadenceChartWidget(QWidget *parent = nullptr)
         : QWidget(parent)
     {
-        setMinimumHeight(180);
+        setMinimumHeight(110);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
 
     void setWeeklyData(const QList<DayUsageSummary> &weeklyData)
@@ -95,8 +99,9 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        const int h = height() - 32; // leave space for day labels
+        const int h = height() - 24; // leave space for day labels
         const int w = width();
+        if (h <= 10 || w <= 20) return;
 
         // 1. Background Grid Seam lines
         p.setPen(QPen(QColor(232, 228, 217, 30), 1, Qt::DashLine));
@@ -111,8 +116,7 @@ protected:
             return;
         }
 
-        // Calculate max seconds across days for relative scaling (minimum 30m for scale)
-        qint64 maxSecs = 1800;
+        qint64 maxSecs = 1800; // minimum 30m scale
         for (const auto &day : m_weeklyData) {
             if (day.totalSeconds > maxSecs) {
                 maxSecs = day.totalSeconds;
@@ -120,17 +124,17 @@ protected:
         }
 
         const int dayCount = m_weeklyData.size();
-        const double gap = 16.0;
+        const double gap = std::clamp(w / 40.0, 4.0, 14.0);
         const double totalGap = gap * (dayCount + 1);
-        const double barWidth = std::max(12.0, (w - totalGap) / dayCount);
+        const double barWidth = std::max(6.0, (w - totalGap) / dayCount);
 
         for (int i = 0; i < dayCount; ++i) {
             const auto &day = m_weeklyData.at(i);
             const double x = gap + i * (barWidth + gap);
 
             if (day.totalSeconds > 0) {
-                const double ratio = std::clamp(static_cast<double>(day.totalSeconds) / maxSecs, 0.05, 1.0);
-                const double barH = (h - 12) * ratio;
+                const double ratio = std::clamp(static_cast<double>(day.totalSeconds) / maxSecs, 0.06, 1.0);
+                const double barH = (h - 8) * ratio;
                 const double y = h - barH;
 
                 const int alpha = static_cast<int>(120 + ratio * 135);
@@ -138,10 +142,9 @@ protected:
 
                 p.setPen(Qt::NoPen);
                 p.setBrush(barColor);
-                p.drawRoundedRect(QRectF(x, y, barWidth, barH), 3, 3);
+                p.drawRoundedRect(QRectF(x, y, barWidth, barH), 2, 2);
             } else {
-                // Subtle flat zero baseline line for days without recorded tracking
-                p.setPen(QPen(QColor(232, 228, 217, 40), 2));
+                p.setPen(QPen(QColor(232, 228, 217, 40), 1.5));
                 p.drawLine(QPointF(x, h - 1), QPointF(x + barWidth, h - 1));
             }
 
@@ -149,10 +152,10 @@ protected:
             p.setPen(day.dayLabel == "Today" ? QColor(230, 138, 92) : QColor(158, 155, 145));
             QFont font = p.font();
             font.setBold(day.dayLabel == "Today");
-            font.setPixelSize(11);
+            font.setPixelSize(10);
             p.setFont(font);
 
-            p.drawText(QRectF(x - 8, h + 8, barWidth + 16, 20), Qt::AlignCenter, day.dayLabel);
+            p.drawText(QRectF(x - 6, h + 4, barWidth + 12, 18), Qt::AlignCenter, day.dayLabel);
         }
     }
 
@@ -171,12 +174,11 @@ public:
     {
         m_layout = new QVBoxLayout(this);
         m_layout->setContentsMargins(0, 0, 0, 0);
-        m_layout->setSpacing(14);
+        m_layout->setSpacing(8);
     }
 
     void updateApps(const QList<AppUsageSummary> &report, qint64 totalSeconds)
     {
-        // Clear previous widgets
         QLayoutItem *child;
         while ((child = m_layout->takeAt(0)) != nullptr) {
             if (child->widget()) {
@@ -187,7 +189,7 @@ public:
 
         if (report.isEmpty()) {
             auto *noDataLabel = new QLabel("No activity recorded yet.", this);
-            noDataLabel->setStyleSheet("color: #9e9b91; font-size: 13px;");
+            noDataLabel->setStyleSheet("color: #9e9b91; font-size: 11px;");
             m_layout->addWidget(noDataLabel);
             return;
         }
@@ -202,17 +204,17 @@ public:
             auto *row = new QWidget(this);
             auto *rowLayout = new QVBoxLayout(row);
             rowLayout->setContentsMargins(0, 0, 0, 0);
-            rowLayout->setSpacing(4);
+            rowLayout->setSpacing(2);
 
             auto *headerLayout = new QHBoxLayout();
             headerLayout->setContentsMargins(0, 0, 0, 0);
 
             auto *nameLabel = new QLabel(item.appId, row);
-            nameLabel->setStyleSheet("color: #e6e2d7; font-size: 13px; font-weight: 500;");
+            nameLabel->setStyleSheet("color: #e6e2d7; font-size: 11px; font-weight: 500;");
 
             QString timeStr = QString("%1h %2m").arg(hours).arg(minutes, 2, 10, QChar('0'));
             auto *timeLabel = new QLabel(timeStr, row);
-            timeLabel->setStyleSheet("color: #9e9b91; font-size: 12px;");
+            timeLabel->setStyleSheet("color: #9e9b91; font-size: 10px;");
 
             headerLayout->addWidget(nameLabel);
             headerLayout->addStretch();
@@ -222,16 +224,16 @@ public:
             bar->setRange(0, 100);
             bar->setValue(percent);
             bar->setTextVisible(false);
-            bar->setFixedHeight(4);
+            bar->setFixedHeight(3);
             bar->setStyleSheet(R"(
                 QProgressBar {
                     background-color: #2b2a23;
                     border: none;
-                    border-radius: 2px;
+                    border-radius: 1px;
                 }
                 QProgressBar::chunk {
                     background-color: #e68a5c;
-                    border-radius: 2px;
+                    border-radius: 1px;
                 }
             )");
 
@@ -255,8 +257,8 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
     , m_db(db)
 {
     setWindowTitle("NOREN | 暖簾 — Stats");
-    resize(980, 640);
-    setMinimumSize(820, 520);
+    resize(720, 480);
+    setMinimumSize(560, 360);
 
     setupUi();
 
@@ -270,7 +272,7 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
 
 void Dashboard::setupUi()
 {
-    // Apply Global Aizome Theme Stylesheet
+    // Apply Global Aizome Theme Stylesheet with smooth scrollbars
     setStyleSheet(R"(
         QMainWindow {
             background-color: #14140d;
@@ -291,6 +293,23 @@ void Dashboard::setupUi()
             color: #e6e2d7;
             font-family: 'Segoe UI', 'Hanken Grotesk', sans-serif;
         }
+        QScrollArea {
+            background-color: transparent;
+            border: none;
+        }
+        QScrollBar:vertical {
+            background: #14140d;
+            width: 6px;
+            margin: 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: #2b2a23;
+            min-height: 20px;
+            border-radius: 3px;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
     )");
 
     auto *centralWidget = new QWidget(this);
@@ -300,21 +319,21 @@ void Dashboard::setupUi()
     rootLayout->setSpacing(0);
 
     // =========================================================================
-    // 1. SideNav (Stats only for v0.1)
+    // 1. SideNav (Stats only for v0.1) - Compact & Responsive width
     // =========================================================================
     auto *sideNav = new QFrame(this);
     sideNav->setObjectName("sideNav");
-    sideNav->setFixedWidth(220);
+    sideNav->setFixedWidth(160);
 
     auto *sideLayout = new QVBoxLayout(sideNav);
-    sideLayout->setContentsMargins(20, 32, 20, 24);
-    sideLayout->setSpacing(8);
+    sideLayout->setContentsMargins(14, 20, 14, 16);
+    sideLayout->setSpacing(6);
 
     // Brand Title
     auto *brandTitle = new QLabel("NOREN | 暖簾", sideNav);
-    brandTitle->setStyleSheet("color: #e68a5c; font-size: 15px; font-weight: 700; letter-spacing: 2px;");
+    brandTitle->setStyleSheet("color: #e68a5c; font-size: 13px; font-weight: 700; letter-spacing: 1.5px;");
     auto *brandSub = new QLabel("DEEP WORK", sideNav);
-    brandSub->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 2px; margin-bottom: 24px;");
+    brandSub->setStyleSheet("color: #9e9b91; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 16px;");
 
     sideLayout->addWidget(brandTitle);
     sideLayout->addWidget(brandSub);
@@ -324,15 +343,15 @@ void Dashboard::setupUi()
     statsTab->setStyleSheet(R"(
         QFrame {
             background-color: #2b2a23;
-            border-left: 4px solid #ffb5a1;
+            border-left: 3px solid #ffb5a1;
             border-radius: 0px;
         }
     )");
     auto *tabLayout = new QHBoxLayout(statsTab);
-    tabLayout->setContentsMargins(14, 10, 14, 10);
+    tabLayout->setContentsMargins(10, 8, 10, 8);
 
     auto *tabLabel = new QLabel("Stats", statsTab);
-    tabLabel->setStyleSheet("color: #ffb5a1; font-size: 14px; font-weight: 500;");
+    tabLabel->setStyleSheet("color: #ffb5a1; font-size: 13px; font-weight: 500;");
     tabLayout->addWidget(tabLabel);
 
     sideLayout->addWidget(statsTab);
@@ -340,35 +359,38 @@ void Dashboard::setupUi()
 
     // User / Version Footer
     auto *footer = new QLabel("noren v0.1", sideNav);
-    footer->setStyleSheet("color: rgba(230, 226, 215, 0.4); font-size: 11px; letter-spacing: 1px;");
+    footer->setStyleSheet("color: rgba(230, 226, 215, 0.4); font-size: 10px; letter-spacing: 1px;");
     sideLayout->addWidget(footer);
 
     rootLayout->addWidget(sideNav);
 
     // =========================================================================
-    // 2. Main Content Bento Grid
+    // 2. Main Content Bento Grid inside ScrollArea for perfect responsiveness
     // =========================================================================
-    auto *mainArea = new QWidget(this);
+    auto *scrollArea = new QScrollArea(this);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
+    auto *mainArea = new QWidget(scrollArea);
     auto *mainLayout = new QVBoxLayout(mainArea);
-    mainLayout->setContentsMargins(28, 28, 28, 28);
-    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(16, 16, 16, 16);
+    mainLayout->setSpacing(12);
 
     // Top: Hero Card (Total Recorded Screen Time Today)
     auto *heroCard = new QFrame(mainArea);
     heroCard->setObjectName("panelCard");
-    heroCard->setMinimumHeight(130);
     auto *heroLayout = new QVBoxLayout(heroCard);
-    heroLayout->setContentsMargins(24, 20, 24, 20);
-    heroLayout->setSpacing(6);
+    heroLayout->setContentsMargins(18, 14, 18, 14);
+    heroLayout->setSpacing(4);
 
     auto *heroTag = new QLabel("■  TODAY'S SCREEN TIME", heroCard);
-    heroTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;");
+    heroTag->setStyleSheet("color: #9e9b91; font-size: 10px; font-weight: 600; letter-spacing: 1.2px;");
 
-    m_heroTimeLabel = new QLabel("0<font size='5' color='#9e9b91'>h</font> 00<font size='5' color='#9e9b91'>m</font>", heroCard);
-    m_heroTimeLabel->setStyleSheet("font-size: 42px; font-weight: 300; color: #e6e2d7;");
+    m_heroTimeLabel = new QLabel("0<font size='4' color='#9e9b91'>h</font> 00<font size='4' color='#9e9b91'>m</font>", heroCard);
+    m_heroTimeLabel->setStyleSheet("font-size: 32px; font-weight: 300; color: #e6e2d7;");
 
     m_heroSubtitleLabel = new QLabel("Tracking live window focus", heroCard);
-    m_heroSubtitleLabel->setStyleSheet("color: #9e9b91; font-size: 13px;");
+    m_heroSubtitleLabel->setStyleSheet("color: #9e9b91; font-size: 11px;");
 
     heroLayout->addWidget(heroTag);
     heroLayout->addWidget(m_heroTimeLabel);
@@ -380,16 +402,17 @@ void Dashboard::setupUi()
     auto *gridWidget = new QWidget(mainArea);
     auto *gridLayout = new QGridLayout(gridWidget);
     gridLayout->setContentsMargins(0, 0, 0, 0);
-    gridLayout->setSpacing(20);
+    gridLayout->setSpacing(12);
 
     // Middle Left: Weekly Activity Chart (Real 7-day data)
     auto *cadenceCard = new QFrame(gridWidget);
     cadenceCard->setObjectName("panelCard");
     auto *cadenceLayout = new QVBoxLayout(cadenceCard);
-    cadenceLayout->setContentsMargins(24, 20, 24, 20);
+    cadenceLayout->setContentsMargins(16, 12, 16, 12);
+    cadenceLayout->setSpacing(6);
 
     auto *cadenceTag = new QLabel("WEEKLY ACTIVITY", cadenceCard);
-    cadenceTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 8px;");
+    cadenceTag->setStyleSheet("color: #9e9b91; font-size: 10px; font-weight: 600; letter-spacing: 1.2px;");
     m_cadenceWidget = new CadenceChartWidget(cadenceCard);
 
     cadenceLayout->addWidget(cadenceTag);
@@ -401,14 +424,15 @@ void Dashboard::setupUi()
     auto *zenCard = new QFrame(gridWidget);
     zenCard->setObjectName("panelCard");
     auto *zenLayout = new QVBoxLayout(zenCard);
-    zenLayout->setContentsMargins(24, 16, 24, 16);
+    zenLayout->setContentsMargins(14, 10, 14, 10);
+    zenLayout->setSpacing(4);
 
     auto *zenTag = new QLabel("PRIMARY FOCUS", zenCard);
-    zenTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;");
+    zenTag->setStyleSheet("color: #9e9b91; font-size: 10px; font-weight: 600; letter-spacing: 1.2px;");
     m_zenWidget = new ZenMeterWidget(zenCard);
     m_zenSubtitleLabel = new QLabel("No activity today", zenCard);
     m_zenSubtitleLabel->setAlignment(Qt::AlignCenter);
-    m_zenSubtitleLabel->setStyleSheet("color: #9e9b91; font-size: 12px;");
+    m_zenSubtitleLabel->setStyleSheet("color: #9e9b91; font-size: 11px;");
 
     zenLayout->addWidget(zenTag);
     zenLayout->addWidget(m_zenWidget, 0, Qt::AlignCenter);
@@ -420,10 +444,11 @@ void Dashboard::setupUi()
     auto *breakdownCard = new QFrame(gridWidget);
     breakdownCard->setObjectName("panelCard");
     auto *breakdownLayout = new QVBoxLayout(breakdownCard);
-    breakdownLayout->setContentsMargins(24, 16, 24, 16);
+    breakdownLayout->setContentsMargins(14, 10, 14, 10);
+    breakdownLayout->setSpacing(4);
 
     auto *breakdownTag = new QLabel("TOP APPLICATIONS", breakdownCard);
-    breakdownTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 6px;");
+    breakdownTag->setStyleSheet("color: #9e9b91; font-size: 10px; font-weight: 600; letter-spacing: 1.2px;");
     m_breakdownWidget = new AppBreakdownWidget(breakdownCard);
 
     breakdownLayout->addWidget(breakdownTag);
@@ -431,12 +456,14 @@ void Dashboard::setupUi()
 
     gridLayout->addWidget(breakdownCard, 1, 1);
 
-    gridLayout->setColumnStretch(0, 3);
-    gridLayout->setColumnStretch(1, 2);
+    gridLayout->setColumnStretch(0, 5);
+    gridLayout->setColumnStretch(1, 4);
 
     mainLayout->addWidget(gridWidget, 1);
 
-    rootLayout->addWidget(mainArea, 1);
+    scrollArea->setWidget(mainArea);
+    rootLayout->addWidget(scrollArea, 1);
+
     setCentralWidget(centralWidget);
 }
 
@@ -455,7 +482,7 @@ void Dashboard::onDashboardDataReady(const DashboardData &data)
     const qint64 minutes = (totalSeconds % 3600) / 60;
 
     m_heroTimeLabel->setText(
-        QString("%1<font size='5' color='#9e9b91'>h</font> %2<font size='5' color='#9e9b91'>m</font>")
+        QString("%1<font size='4' color='#9e9b91'>h</font> %2<font size='4' color='#9e9b91'>m</font>")
             .arg(hours)
             .arg(minutes, 2, 10, QChar('0'))
     );
