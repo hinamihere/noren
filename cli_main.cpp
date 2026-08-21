@@ -91,7 +91,8 @@ static bool fetchReportFromDaemon(QList<AppUsageSummary> &outReport)
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    QCoreApplication::setApplicationName("noren-cli");
+    QCoreApplication::setOrganizationName("noren");
+    QCoreApplication::setApplicationName("noren");
     QCoreApplication::setApplicationVersion("0.1");
 
     QCommandLineParser parser;

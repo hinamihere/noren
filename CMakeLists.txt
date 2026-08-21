@@ -32,6 +32,10 @@ qt_add_executable(noren-cli
     database.h database.cpp
 )
 
+set_target_properties(noren-cli PROPERTIES
+    WIN32_EXECUTABLE FALSE
+)
+
 target_link_libraries(noren-cli
     PRIVATE
         Qt::Core

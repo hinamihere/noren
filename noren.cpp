@@ -106,9 +106,9 @@ void Noren::onNewConnection()
             response["message"] = "Invalid JSON command";
         }
 
+        connect(socket, &QLocalSocket::bytesWritten, socket, &QLocalSocket::disconnectFromServer);
         socket->write(QJsonDocument(response).toJson(QJsonDocument::Compact) + "\n");
         socket->flush();
-        socket->disconnectFromServer();
     });
 
     connect(socket, &QLocalSocket::disconnected, socket, &QLocalSocket::deleteLater);
