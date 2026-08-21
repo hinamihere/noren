@@ -8,6 +8,7 @@ qt_standard_project_setup()
 qt_add_executable(noren
     WIN32 MACOSX_BUNDLE
     main.cpp
+    focustracker.h focustracker.cpp
     norentray.cpp
     norentray.h
     dashboard.h dashboard.cpp
@@ -18,6 +19,10 @@ target_link_libraries(noren
         Qt::Core
         Qt::Widgets
 )
+
+if(WIN32)
+    target_link_libraries(noren PRIVATE User32)
+endif()
 
 install(TARGETS noren
     BUNDLE  DESTINATION .
