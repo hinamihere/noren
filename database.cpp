@@ -126,7 +126,7 @@ QList<AppUsageSummary> Database::getReportForToday()
 
     const qint64 todayStart = QDateTime::currentDateTime().date().startOfDay().toSecsSinceEpoch();
 
-    QSqlQuery query;
+    QSqlQuery query(m_db);
     query.prepare(R"(
         SELECT app_id, SUM(ended - started) as total_seconds
         FROM intervals
@@ -149,6 +149,39 @@ QList<AppUsageSummary> Database::getReportForToday()
     }
 
     return summaries;
+}
+
+QList<DayUsageSummary> Database::getWeeklyUsage()
+{
+    QList<DayUsageSummary> weekly;
+    if (!m_db.isOpen()) {
+        return weekly;
+    }
+
+    const QDate today = QDate::currentDate();
+    for (int i = 6; i >= 0; --i) {
+        const QDate date = today.addDays(-i);
+        const qint64 dayStart = date.startOfDay().toSecsSinceEpoch();
+        const qint64 dayEnd = date.endOfDay().toSecsSinceEpoch();
+
+        QSqlQuery query(m_db);
+        query.prepare(R"(
+            SELECT COALESCE(SUM(ended - started), 0) as total_seconds
+            FROM intervals
+            WHERE started >= :dayStart AND started <= :dayEnd
+        )");
+        query.bindValue(":dayStart", dayStart);
+        query.bindValue(":dayEnd", dayEnd);
+
+        DayUsageSummary daySummary;
+        daySummary.dayLabel = (i == 0) ? "Today" : date.toString("ddd");
+        if (query.exec() && query.next()) {
+            daySummary.totalSeconds = query.value("total_seconds").toLongLong();
+        }
+        weekly.append(daySummary);
+    }
+
+    return weekly;
 }
 
 void Database::requestReportForToday()
@@ -189,6 +222,73 @@ void Database::requestReportForToday()
 
         QMetaObject::invokeMethod(this, [this, summaries]() {
             emit reportReady(summaries);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void Database::requestDashboardData()
+{
+    const QString dbPath = m_db.databaseName();
+    QThreadPool::globalInstance()->start([this, dbPath]() {
+        const QString connName = QString("async_dash_%1").arg(quintptr(QThread::currentThreadId()));
+        DashboardData data;
+        {
+            QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connName);
+            threadDb.setDatabaseName(dbPath);
+            if (threadDb.open()) {
+                // 1. Today's apps
+                const QDate today = QDate::currentDate();
+                const qint64 todayStart = today.startOfDay().toSecsSinceEpoch();
+                QSqlQuery query(threadDb);
+                query.prepare(R"(
+                    SELECT app_id, SUM(ended - started) as total_seconds
+                    FROM intervals
+                    WHERE started >= :todayStart
+                    GROUP BY app_id
+                    ORDER BY total_seconds DESC
+                )");
+                query.bindValue(":todayStart", todayStart);
+
+                if (query.exec()) {
+                    while (query.next()) {
+                        AppUsageSummary summary;
+                        summary.appId = query.value("app_id").toString();
+                        summary.totalSeconds = query.value("total_seconds").toLongLong();
+                        data.todayTotalSeconds += summary.totalSeconds;
+                        data.todayApps.append(summary);
+                    }
+                }
+
+                // 2. Weekly breakdown for the last 7 days
+                for (int i = 6; i >= 0; --i) {
+                    const QDate date = today.addDays(-i);
+                    const qint64 dayStart = date.startOfDay().toSecsSinceEpoch();
+                    const qint64 dayEnd = date.endOfDay().toSecsSinceEpoch();
+
+                    QSqlQuery dayQuery(threadDb);
+                    dayQuery.prepare(R"(
+                        SELECT COALESCE(SUM(ended - started), 0) as total_seconds
+                        FROM intervals
+                        WHERE started >= :dayStart AND started <= :dayEnd
+                    )");
+                    dayQuery.bindValue(":dayStart", dayStart);
+                    dayQuery.bindValue(":dayEnd", dayEnd);
+
+                    DayUsageSummary daySummary;
+                    daySummary.dayLabel = (i == 0) ? "Today" : date.toString("ddd");
+                    if (dayQuery.exec() && dayQuery.next()) {
+                        daySummary.totalSeconds = dayQuery.value("total_seconds").toLongLong();
+                    }
+                    data.weeklyUsage.append(daySummary);
+                }
+
+                threadDb.close();
+            }
+        }
+        QSqlDatabase::removeDatabase(connName);
+
+        QMetaObject::invokeMethod(this, [this, data]() {
+            emit dashboardDataReady(data);
         }, Qt::QueuedConnection);
     });
 }

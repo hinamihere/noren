@@ -8,8 +8,11 @@
 #include <QTimer>
 #include "database.h"
 
-class QTableWidget;
 class QLabel;
+class QVBoxLayout;
+class CadenceChartWidget;
+class ZenMeterWidget;
+class AppBreakdownWidget;
 
 class Dashboard : public QMainWindow
 {
@@ -22,7 +25,7 @@ public slots:
     void refreshReport();
 
 private slots:
-    void onReportReady(const QList<AppUsageSummary> &report);
+    void onDashboardDataReady(const DashboardData &data);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -31,9 +34,17 @@ protected:
 
 private:
     Database *m_db{nullptr};
-    QTableWidget *m_tableWidget{nullptr};
-    QLabel *m_totalLabel{nullptr};
     QTimer m_refreshTimer;
+
+    // UI Widgets
+    QLabel *m_heroTimeLabel{nullptr};
+    QLabel *m_heroSubtitleLabel{nullptr};
+    CadenceChartWidget *m_cadenceWidget{nullptr};
+    ZenMeterWidget *m_zenWidget{nullptr};
+    QLabel *m_zenSubtitleLabel{nullptr};
+    AppBreakdownWidget *m_breakdownWidget{nullptr};
+
+    void setupUi();
 };
 
 #endif // DASHBOARD_H
