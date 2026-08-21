@@ -117,43 +117,6 @@ bool Database::updateIntervalEnd(qint64 id, qint64 ended)
     return true;
 }
 
-QList<IntervalRecord> Database::getIntervalsForToday()
-{
-    QList<IntervalRecord> records;
-    if (!m_db.isOpen()) {
-        return records;
-    }
-
-    const qint64 todayStart = QDateTime::currentDateTime().date().startOfDay().toSecsSinceEpoch();
-
-    QSqlQuery query;
-    query.prepare(R"(
-        SELECT id, app_id, title, started, ended, idle
-        FROM intervals
-        WHERE started >= :todayStart
-        ORDER BY started ASC
-    )");
-    query.bindValue(":todayStart", todayStart);
-
-    if (!query.exec()) {
-        qWarning() << "Failed to query today's intervals:" << query.lastError().text();
-        return records;
-    }
-
-    while (query.next()) {
-        IntervalRecord record;
-        record.id = query.value("id").toLongLong();
-        record.appId = query.value("app_id").toString();
-        record.title = query.value("title").toString();
-        record.started = query.value("started").toLongLong();
-        record.ended = query.value("ended").toLongLong();
-        record.idle = query.value("idle").toInt();
-        records.append(record);
-    }
-
-    return records;
-}
-
 QList<AppUsageSummary> Database::getReportForToday()
 {
     QList<AppUsageSummary> summaries;
@@ -192,7 +155,7 @@ void Database::requestReportForToday()
 {
     const QString dbPath = m_db.databaseName();
     QThreadPool::globalInstance()->start([this, dbPath]() {
-        const QString connName = QString("async_report_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+        const QString connName = QString("async_report_%1").arg(quintptr(QThread::currentThreadId()));
         QList<AppUsageSummary> summaries;
         {
             QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connName);
