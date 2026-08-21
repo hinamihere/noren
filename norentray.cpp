@@ -1,21 +1,32 @@
 #include "norentray.h"
-#include <QSystemTrayIcon>
+#include "dashboard.h"
 #include <QMenu>
 #include <QApplication>
 
 NorenTray::NorenTray(QObject *parent)
     : QObject(parent)
 {
-    auto *trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(QIcon::fromTheme("dialog-information"));
-    trayIcon->setToolTip("noren — tracking your time");
+    m_dashboard = new Dashboard();
+    m_dashboard->hide();
+
+    m_trayIcon = new QSystemTrayIcon(this);
+    m_trayIcon->setIcon(QIcon::fromTheme("dialog-information"));
+    m_trayIcon->setToolTip("noren");
 
     auto *menu = new QMenu();
+    menu->addAction("Dashboard", this, &NorenTray::showDashboard);
+    menu->addSeparator();
     menu->addAction("Quit", qApp, &QApplication::quit);
-    trayIcon->setContextMenu(menu);
-
-    trayIcon->show();
+    m_trayIcon->setContextMenu(menu);
+    m_trayIcon->show();
 }
 
 NorenTray::~NorenTray() = default;
+
+void NorenTray::showDashboard()
+{
+    m_dashboard->show();
+    m_dashboard->raise();
+    m_dashboard->activateWindow();
+}
 

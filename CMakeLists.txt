@@ -10,6 +10,7 @@ qt_add_executable(noren
     main.cpp
     norentray.cpp
     norentray.h
+    dashboard.h dashboard.cpp
 )
 
 target_link_libraries(noren

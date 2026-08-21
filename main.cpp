@@ -5,6 +5,6 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    NorenTray w;
+    NorenTray tray;
     return QApplication::exec();
 }
