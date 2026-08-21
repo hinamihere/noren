@@ -347,12 +347,19 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
     setWindowTitle("NOREN | 暖簾 — Stats");
 
     QIcon appIcon;
-    if (QFile::exists(":/noren.jpg")) {
-        appIcon = QIcon(":/noren.jpg");
-    } else if (QFile::exists("noren.jpg")) {
-        appIcon = QIcon("noren.jpg");
-    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
-        appIcon = QIcon(QCoreApplication::applicationDirPath() + "/noren.jpg");
+    const QStringList iconCandidates = {
+        ":/assets/noren.jpg",
+        ":/noren.jpg",
+        "assets/noren.jpg",
+        "noren.jpg",
+        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
+        QCoreApplication::applicationDirPath() + "/noren.jpg"
+    };
+    for (const QString &path : iconCandidates) {
+        if (QFile::exists(path)) {
+            appIcon = QIcon(path);
+            break;
+        }
     }
     if (!appIcon.isNull()) {
         setWindowIcon(appIcon);
@@ -448,12 +455,19 @@ void Dashboard::setupUi()
 
     // Optional Logo Pixmap
     QPixmap logoPix;
-    if (QFile::exists(":/noren.jpg")) {
-        logoPix.load(":/noren.jpg");
-    } else if (QFile::exists("noren.jpg")) {
-        logoPix.load("noren.jpg");
-    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
-        logoPix.load(QCoreApplication::applicationDirPath() + "/noren.jpg");
+    const QStringList logoCandidates = {
+        ":/assets/noren.jpg",
+        ":/noren.jpg",
+        "assets/noren.jpg",
+        "noren.jpg",
+        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
+        QCoreApplication::applicationDirPath() + "/noren.jpg"
+    };
+    for (const QString &path : logoCandidates) {
+        if (QFile::exists(path)) {
+            logoPix.load(path);
+            break;
+        }
     }
 
     if (!logoPix.isNull()) {

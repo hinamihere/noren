@@ -26,13 +26,21 @@ Noren::Noren(QObject *parent)
 
     m_trayIcon = new QSystemTrayIcon(this);
     QIcon appIcon;
-    if (QFile::exists(":/noren.jpg")) {
-        appIcon = QIcon(":/noren.jpg");
-    } else if (QFile::exists("noren.jpg")) {
-        appIcon = QIcon("noren.jpg");
-    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
-        appIcon = QIcon(QCoreApplication::applicationDirPath() + "/noren.jpg");
-    } else {
+    const QStringList iconCandidates = {
+        ":/assets/noren.jpg",
+        ":/noren.jpg",
+        "assets/noren.jpg",
+        "noren.jpg",
+        QCoreApplication::applicationDirPath() + "/assets/noren.jpg",
+        QCoreApplication::applicationDirPath() + "/noren.jpg"
+    };
+    for (const QString &path : iconCandidates) {
+        if (QFile::exists(path)) {
+            appIcon = QIcon(path);
+            break;
+        }
+    }
+    if (appIcon.isNull()) {
         appIcon = QIcon::fromTheme("dialog-information");
     }
     m_trayIcon->setIcon(appIcon);
