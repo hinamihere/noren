@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(noren LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Sql Network)
 
 qt_standard_project_setup()
 
@@ -20,13 +20,26 @@ target_link_libraries(noren
         Qt::Core
         Qt::Widgets
         Qt::Sql
+        Qt::Network
 )
 
 if(WIN32)
     target_link_libraries(noren PRIVATE User32)
 endif()
 
-install(TARGETS noren
+qt_add_executable(noren-cli
+    cli_main.cpp
+    database.h database.cpp
+)
+
+target_link_libraries(noren-cli
+    PRIVATE
+        Qt::Core
+        Qt::Sql
+        Qt::Network
+)
+
+install(TARGETS noren noren-cli
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

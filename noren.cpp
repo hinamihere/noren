@@ -5,6 +5,10 @@
 
 #include <QApplication>
 #include <QDebug>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLocalSocket>
 #include <QMenu>
 #include <QSystemTrayIcon>
 
@@ -37,10 +41,19 @@ Noren::Noren(QObject *parent)
     });
 
     m_trayIcon->show();
+
+    // Start named pipe / local IPC server
+    QLocalServer::removeServer("noren");
+    if (!m_server.listen("noren")) {
+        qWarning() << "Failed to start local IPC server:" << m_server.errorString();
+    } else {
+        connect(&m_server, &QLocalServer::newConnection, this, &Noren::onNewConnection);
+    }
 }
 
 Noren::~Noren()
 {
+    m_server.close();
     if (m_focusTracker) {
         qApp->removeNativeEventFilter(m_focusTracker.get());
     }
@@ -57,5 +70,49 @@ void Noren::onFocusChanged(quint32 pid, const QString &title)
 {
     qDebug() << "Focus:" << pid << title;
 }
+
+void Noren::onNewConnection()
+{
+    QLocalSocket *socket = m_server.nextPendingConnection();
+    if (!socket) {
+        return;
+    }
+
+    connect(socket, &QLocalSocket::readyRead, this, [this, socket]() {
+        const QByteArray data = socket->readAll();
+        QJsonParseError parseError;
+        const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+
+        QJsonObject response;
+        if (!parseError.error && doc.isObject()) {
+            const QString cmd = doc.object().value("cmd").toString();
+            if (cmd == "report") {
+                const auto report = m_db->getReportForToday();
+                QJsonArray items;
+                for (const auto &item : report) {
+                    QJsonObject obj;
+                    obj["app_id"] = item.appId;
+                    obj["total_seconds"] = item.totalSeconds;
+                    items.append(obj);
+                }
+                response["status"] = "ok";
+                response["data"] = items;
+            } else {
+                response["status"] = "error";
+                response["message"] = "Unknown command";
+            }
+        } else {
+            response["status"] = "error";
+            response["message"] = "Invalid JSON command";
+        }
+
+        socket->write(QJsonDocument(response).toJson(QJsonDocument::Compact) + "\n");
+        socket->flush();
+        socket->disconnectFromServer();
+    });
+
+    connect(socket, &QLocalSocket::disconnected, socket, &QLocalSocket::deleteLater);
+}
+
 
 

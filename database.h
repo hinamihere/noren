@@ -15,6 +15,11 @@ struct IntervalRecord {
     int idle{0};
 };
 
+struct AppUsageSummary {
+    QString appId;
+    qint64 totalSeconds{0};
+};
+
 class Database : public QObject
 {
     Q_OBJECT
@@ -31,6 +36,7 @@ public:
     bool writeInterval(const QString &appId, const QString &title, qint64 started, qint64 ended, int idle = 0);
 
     QList<IntervalRecord> getIntervalsForToday();
+    QList<AppUsageSummary> getReportForToday();
     void recoverOrphanedIntervals();
 
 private:

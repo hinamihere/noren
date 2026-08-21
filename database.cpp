@@ -157,6 +157,40 @@ QList<IntervalRecord> Database::getIntervalsForToday()
     return records;
 }
 
+QList<AppUsageSummary> Database::getReportForToday()
+{
+    QList<AppUsageSummary> summaries;
+    if (!m_db.isOpen()) {
+        return summaries;
+    }
+
+    const qint64 todayStart = QDateTime::currentDateTime().date().startOfDay().toSecsSinceEpoch();
+
+    QSqlQuery query;
+    query.prepare(R"(
+        SELECT app_id, SUM(ended - started) as total_seconds
+        FROM intervals
+        WHERE started >= :todayStart
+        GROUP BY app_id
+        ORDER BY total_seconds DESC
+    )");
+    query.bindValue(":todayStart", todayStart);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to query today's report:" << query.lastError().text();
+        return summaries;
+    }
+
+    while (query.next()) {
+        AppUsageSummary summary;
+        summary.appId = query.value("app_id").toString();
+        summary.totalSeconds = query.value("total_seconds").toLongLong();
+        summaries.append(summary);
+    }
+
+    return summaries;
+}
+
 void Database::recoverOrphanedIntervals()
 {
     if (!m_db.isOpen()) {
