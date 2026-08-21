@@ -274,10 +274,11 @@ void Dashboard::setupUi()
 {
     // Apply Global Aizome Theme Stylesheet with smooth scrollbars
     setStyleSheet(R"(
-        QMainWindow {
+        QMainWindow, QWidget {
             background-color: #14140d;
+            color: #e6e2d7;
         }
-        QWidget#centralContainer {
+        QWidget#centralContainer, QWidget#mainArea, QScrollArea, QAbstractScrollArea, QAbstractScrollArea::viewport {
             background-color: #14140d;
         }
         QFrame#sideNav {
@@ -289,12 +290,18 @@ void Dashboard::setupUi()
             border: 1px solid rgba(232, 228, 217, 0.12);
             border-radius: 2px;
         }
+        QFrame#statsTab {
+            background-color: #2b2a23;
+            border-left: 3px solid #ffb5a1;
+            border-radius: 0px;
+        }
         QLabel {
             color: #e6e2d7;
             font-family: 'Segoe UI', 'Hanken Grotesk', sans-serif;
+            background-color: transparent;
         }
         QScrollArea {
-            background-color: transparent;
+            background-color: #14140d;
             border: none;
         }
         QScrollBar:vertical {
@@ -340,8 +347,9 @@ void Dashboard::setupUi()
 
     // Active Stats Tab
     auto *statsTab = new QFrame(sideNav);
+    statsTab->setObjectName("statsTab");
     statsTab->setStyleSheet(R"(
-        QFrame {
+        QFrame#statsTab {
             background-color: #2b2a23;
             border-left: 3px solid #ffb5a1;
             border-radius: 0px;
@@ -370,8 +378,12 @@ void Dashboard::setupUi()
     auto *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->viewport()->setStyleSheet("background-color: #14140d;");
+    scrollArea->setStyleSheet("background-color: #14140d; border: none;");
 
     auto *mainArea = new QWidget(scrollArea);
+    mainArea->setObjectName("mainArea");
+    mainArea->setStyleSheet("background-color: #14140d;");
     auto *mainLayout = new QVBoxLayout(mainArea);
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(12);
