@@ -74,8 +74,13 @@ private:
     int m_percent{0};
 };
 
+#include <QEvent>
+#include <QHelpEvent>
+#include <QMouseEvent>
+#include <QToolTip>
+
 // ---------------------------------------------------------------------------
-// CadenceChartWidget: 7-Day Real Weekly Focus Bar Chart
+// CadenceChartWidget: 7-Day Real Weekly Focus Bar Chart with Interactive Tooltips
 // ---------------------------------------------------------------------------
 class CadenceChartWidget : public QWidget
 {
@@ -85,6 +90,7 @@ public:
     {
         setMinimumHeight(110);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        setMouseTracking(true);
     }
 
     void setWeeklyData(const QList<DayUsageSummary> &weeklyData)
@@ -94,6 +100,59 @@ public:
     }
 
 protected:
+    bool event(QEvent *event) override
+    {
+        if (event->type() == QEvent::ToolTip) {
+            auto *helpEvent = static_cast<QHelpEvent *>(event);
+            const int idx = barIndexAt(helpEvent->pos());
+            if (idx >= 0 && idx < m_weeklyData.size()) {
+                const auto &day = m_weeklyData.at(idx);
+                const qint64 totalSecs = day.totalSeconds;
+                const qint64 hours = totalSecs / 3600;
+                const qint64 minutes = (totalSecs % 3600) / 60;
+                const qint64 seconds = totalSecs % 60;
+
+                QString timeText;
+                if (hours > 0) {
+                    timeText = QString("%1h %2m").arg(hours).arg(minutes, 2, 10, QChar('0'));
+                } else if (minutes > 0) {
+                    timeText = QString("%1m %2s").arg(minutes).arg(seconds, 2, 10, QChar('0'));
+                } else if (seconds > 0) {
+                    timeText = QString("%1s").arg(seconds);
+                } else {
+                    timeText = "0m (No activity)";
+                }
+
+                const QString tip = QString("<b>%1</b>: %2").arg(day.dayLabel, timeText);
+                QToolTip::showText(helpEvent->globalPos(), tip, this);
+                return true;
+            }
+            QToolTip::hideText();
+            event->ignore();
+            return true;
+        }
+        return QWidget::event(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        const int idx = barIndexAt(event->pos());
+        if (idx != m_hoveredIndex) {
+            m_hoveredIndex = idx;
+            update();
+        }
+        QWidget::mouseMoveEvent(event);
+    }
+
+    void leaveEvent(QEvent *event) override
+    {
+        if (m_hoveredIndex != -1) {
+            m_hoveredIndex = -1;
+            update();
+        }
+        QWidget::leaveEvent(event);
+    }
+
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
@@ -131,27 +190,31 @@ protected:
         for (int i = 0; i < dayCount; ++i) {
             const auto &day = m_weeklyData.at(i);
             const double x = gap + i * (barWidth + gap);
+            const bool isHovered = (i == m_hoveredIndex);
 
             if (day.totalSeconds > 0) {
                 const double ratio = std::clamp(static_cast<double>(day.totalSeconds) / maxSecs, 0.06, 1.0);
                 const double barH = (h - 8) * ratio;
                 const double y = h - barH;
 
-                const int alpha = static_cast<int>(120 + ratio * 135);
-                const QColor barColor(230, 138, 92, alpha);
+                int alpha = static_cast<int>(120 + ratio * 135);
+                if (isHovered) {
+                    alpha = 255;
+                }
+                const QColor barColor = isHovered ? QColor(255, 181, 161, alpha) : QColor(230, 138, 92, alpha);
 
-                p.setPen(Qt::NoPen);
+                p.setPen(isHovered ? QPen(QColor(255, 255, 255, 160), 1) : Qt::NoPen);
                 p.setBrush(barColor);
                 p.drawRoundedRect(QRectF(x, y, barWidth, barH), 2, 2);
             } else {
-                p.setPen(QPen(QColor(232, 228, 217, 40), 1.5));
+                p.setPen(QPen(isHovered ? QColor(255, 181, 161, 160) : QColor(232, 228, 217, 40), isHovered ? 2.5 : 1.5));
                 p.drawLine(QPointF(x, h - 1), QPointF(x + barWidth, h - 1));
             }
 
             // Day label below bar
-            p.setPen(day.dayLabel == "Today" ? QColor(230, 138, 92) : QColor(158, 155, 145));
+            p.setPen(day.dayLabel == "Today" || isHovered ? QColor(230, 138, 92) : QColor(158, 155, 145));
             QFont font = p.font();
-            font.setBold(day.dayLabel == "Today");
+            font.setBold(day.dayLabel == "Today" || isHovered);
             font.setPixelSize(10);
             p.setFont(font);
 
@@ -160,7 +223,31 @@ protected:
     }
 
 private:
+    int barIndexAt(const QPoint &pos) const
+    {
+        if (m_weeklyData.isEmpty()) return -1;
+
+        const int h = height() - 24;
+        const int w = width();
+        if (pos.y() < 0 || pos.y() > height()) return -1;
+
+        const int dayCount = m_weeklyData.size();
+        const double gap = std::clamp(w / 40.0, 4.0, 14.0);
+        const double totalGap = gap * (dayCount + 1);
+        const double barWidth = std::max(6.0, (w - totalGap) / dayCount);
+
+        for (int i = 0; i < dayCount; ++i) {
+            const double x = gap + i * (barWidth + gap);
+            // Allow clicking/hovering near the column
+            if (pos.x() >= x - (gap / 2.0) && pos.x() <= x + barWidth + (gap / 2.0)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     QList<DayUsageSummary> m_weeklyData;
+    int m_hoveredIndex{-1};
 };
 
 // ---------------------------------------------------------------------------
@@ -316,6 +403,15 @@ void Dashboard::setupUi()
         }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
             height: 0px;
+        }
+        QToolTip {
+            background-color: #212019;
+            color: #e6e2d7;
+            border: 1px solid rgba(232, 228, 217, 0.2);
+            padding: 5px 8px;
+            font-family: 'Segoe UI', 'Hanken Grotesk', sans-serif;
+            font-size: 11px;
+            border-radius: 2px;
         }
     )");
 
