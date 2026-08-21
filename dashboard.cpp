@@ -11,3 +11,9 @@ Dashboard::Dashboard(QWidget *parent)
     label->setAlignment(Qt::AlignCenter);
     setCentralWidget(label);
 }
+
+void Dashboard::closeEvent(QCloseEvent *event)
+{
+    this->hide();
+    event->ignore();
+}
