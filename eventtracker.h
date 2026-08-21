@@ -1,5 +1,5 @@
-#ifndef FOCUSTRACKER_H
-#define FOCUSTRACKER_H
+#ifndef EVENTTRACKER_H
+#define EVENTTRACKER_H
 
 #include <QObject>
 #include <QAbstractNativeEventFilter>
@@ -9,13 +9,13 @@
 #include <windows.h>
 #endif
 
-class FocusTracker : public QObject, public QAbstractNativeEventFilter
+class EventTracker : public QObject, public QAbstractNativeEventFilter
 {
     Q_OBJECT
 
 public:
-    explicit FocusTracker(QObject *parent = nullptr);
-    ~FocusTracker() override;
+    explicit EventTracker(QObject *parent = nullptr);
+    ~EventTracker() override;
 
     bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
 
@@ -38,4 +38,4 @@ private:
 #endif
 };
 
-#endif // FOCUSTRACKER_H
+#endif // EVENTTRACKER_H

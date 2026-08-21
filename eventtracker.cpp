@@ -1,9 +1,9 @@
-#include "focustracker.h"
+#include "eventtracker.h"
 
 #ifdef Q_OS_WIN
-static FocusTracker *s_instance = nullptr;
+static EventTracker *s_instance = nullptr;
 
-void CALLBACK FocusTracker::winEventProc(
+void CALLBACK EventTracker::winEventProc(
     HWINEVENTHOOK /*hWinEventHook*/,
     DWORD event,
     HWND hwnd,
@@ -18,7 +18,7 @@ void CALLBACK FocusTracker::winEventProc(
     }
 }
 
-void FocusTracker::processWindow(HWND hwnd)
+void EventTracker::processWindow(HWND hwnd)
 {
     if (!hwnd) {
         return;
@@ -35,7 +35,7 @@ void FocusTracker::processWindow(HWND hwnd)
 }
 #endif
 
-FocusTracker::FocusTracker(QObject *parent)
+EventTracker::EventTracker(QObject *parent)
     : QObject(parent)
 {
 #ifdef Q_OS_WIN
@@ -44,7 +44,7 @@ FocusTracker::FocusTracker(QObject *parent)
         EVENT_SYSTEM_FOREGROUND,
         EVENT_SYSTEM_FOREGROUND,
         nullptr,
-        &FocusTracker::winEventProc,
+        &EventTracker::winEventProc,
         0,
         0,
         WINEVENT_OUTOFCONTEXT
@@ -58,7 +58,7 @@ FocusTracker::FocusTracker(QObject *parent)
 #endif
 }
 
-FocusTracker::~FocusTracker()
+EventTracker::~EventTracker()
 {
 #ifdef Q_OS_WIN
     if (m_hook) {
@@ -71,7 +71,7 @@ FocusTracker::~FocusTracker()
 #endif
 }
 
-bool FocusTracker::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result)
+bool EventTracker::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result)
 {
     Q_UNUSED(eventType);
     Q_UNUSED(message);

@@ -1,20 +1,20 @@
-#ifndef NORENTRAY_H
-#define NORENTRAY_H
+#ifndef NOREN_H
+#define NOREN_H
 
 #include <QObject>
 #include <memory>
 
 class QSystemTrayIcon;
 class Dashboard;
-class FocusTracker;
+class EventTracker;
 
-class NorenTray : public QObject
+class Noren : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit NorenTray(QObject *parent = nullptr);
-    ~NorenTray() override;
+    explicit Noren(QObject *parent = nullptr);
+    ~Noren() override;
 
 private slots:
     void showDashboard();
@@ -22,8 +22,8 @@ private slots:
 
 private:
     std::unique_ptr<Dashboard> m_dashboard;
-    std::unique_ptr<FocusTracker> m_focusTracker;
+    std::unique_ptr<EventTracker> m_focusTracker;
     QSystemTrayIcon *m_trayIcon{nullptr};
 };
 
-#endif // NORENTRAY_H
+#endif // NOREN_H

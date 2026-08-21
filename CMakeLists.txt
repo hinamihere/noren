@@ -8,9 +8,9 @@ qt_standard_project_setup()
 qt_add_executable(noren
     WIN32 MACOSX_BUNDLE
     main.cpp
-    focustracker.h focustracker.cpp
-    norentray.cpp
-    norentray.h
+    eventtracker.h eventtracker.cpp
+    noren.cpp
+    noren.h
     dashboard.h dashboard.cpp
 )
 

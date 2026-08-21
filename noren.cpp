@@ -1,26 +1,26 @@
-#include "norentray.h"
+#include "noren.h"
 #include "dashboard.h"
-#include "focustracker.h"
+#include "eventtracker.h"
 
 #include <QApplication>
 #include <QDebug>
 #include <QMenu>
 #include <QSystemTrayIcon>
 
-NorenTray::NorenTray(QObject *parent)
+Noren::Noren(QObject *parent)
     : QObject(parent)
     , m_dashboard(std::make_unique<Dashboard>())
-    , m_focusTracker(std::make_unique<FocusTracker>(this))
+    , m_focusTracker(std::make_unique<EventTracker>(this))
 {
     qApp->installNativeEventFilter(m_focusTracker.get());
-    connect(m_focusTracker.get(), &FocusTracker::focusChanged, this, &NorenTray::onFocusChanged);
+    connect(m_focusTracker.get(), &EventTracker::focusChanged, this, &Noren::onFocusChanged);
 
     m_trayIcon = new QSystemTrayIcon(this);
     m_trayIcon->setIcon(QIcon::fromTheme("dialog-information"));
     m_trayIcon->setToolTip("noren");
 
     auto *menu = new QMenu();
-    menu->addAction("Dashboard", this, &NorenTray::showDashboard);
+    menu->addAction("Dashboard", this, &Noren::showDashboard);
     menu->addSeparator();
     menu->addAction("Quit", qApp, &QApplication::quit);
 
@@ -35,21 +35,21 @@ NorenTray::NorenTray(QObject *parent)
     m_trayIcon->show();
 }
 
-NorenTray::~NorenTray()
+Noren::~Noren()
 {
     if (m_focusTracker) {
         qApp->removeNativeEventFilter(m_focusTracker.get());
     }
 }
 
-void NorenTray::showDashboard()
+void Noren::showDashboard()
 {
     m_dashboard->show();
     m_dashboard->raise();
     m_dashboard->activateWindow();
 }
 
-void NorenTray::onFocusChanged(quint32 pid, const QString &title)
+void Noren::onFocusChanged(quint32 pid, const QString &title)
 {
     qDebug() << "Focus:" << pid << title;
 }
