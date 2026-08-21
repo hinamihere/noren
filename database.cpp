@@ -163,15 +163,18 @@ void Database::recoverOrphanedIntervals()
         return;
     }
 
-    // Close any unclosed intervals (ended == 0 or ended < started) at started + 60s
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+
+    // Close any unclosed or future-ended intervals at started + 60s
     QSqlQuery query;
-    const QString recoverySql = R"(
+    query.prepare(R"(
         UPDATE intervals
         SET ended = started + 60
-        WHERE ended = 0 OR ended < started;
-    )";
+        WHERE ended = 0 OR ended < started OR ended > :now;
+    )");
+    query.bindValue(":now", now);
 
-    if (!query.exec(recoverySql)) {
+    if (!query.exec()) {
         qWarning() << "Failed to run startup recovery for orphaned intervals:" << query.lastError().text();
     } else if (query.numRowsAffected() > 0) {
         qDebug() << "Recovered" << query.numRowsAffected() << "orphaned interval(s).";

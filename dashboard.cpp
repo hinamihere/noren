@@ -4,7 +4,7 @@
 Dashboard::Dashboard(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("noren");
+    setWindowTitle("noren — Dashboard");
     resize(600, 400);
 
     auto *label = new QLabel("No data yet. Tracking will appear here.");
