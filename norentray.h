@@ -2,8 +2,10 @@
 #define NORENTRAY_H
 
 #include <QObject>
-#include <QSystemTrayIcon>
-#include "dashboard.h"
+#include <memory>
+
+class QSystemTrayIcon;
+class Dashboard;
 
 class NorenTray : public QObject
 {
@@ -17,8 +19,8 @@ private slots:
     void showDashboard();
 
 private:
-    QSystemTrayIcon *m_trayIcon;
-    Dashboard *m_dashboard;
-
+    std::unique_ptr<Dashboard> m_dashboard;
+    QSystemTrayIcon *m_trayIcon{nullptr};
 };
+
 #endif // NORENTRAY_H

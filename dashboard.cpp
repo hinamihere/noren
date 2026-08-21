@@ -14,6 +14,6 @@ Dashboard::Dashboard(QWidget *parent)
 
 void Dashboard::closeEvent(QCloseEvent *event)
 {
-    this->hide();
+    hide();
     event->ignore();
 }
