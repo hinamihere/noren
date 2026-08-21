@@ -8,18 +8,19 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocalSocket>
-#include <iostream>
-#include <iomanip>
+#include <QTextStream>
 
 static void printReportTable(const QList<AppUsageSummary> &report)
 {
+    QTextStream out(stdout);
     if (report.isEmpty()) {
-        std::cout << "No tracked activity recorded for today yet." << std::endl;
+        out << "No tracked activity recorded for today yet.\n";
+        out.flush();
         return;
     }
 
-    std::cout << std::left << std::setw(30) << "Application" << std::setw(15) << "Time" << std::endl;
-    std::cout << std::string(45, '-') << std::endl;
+    out << QString("%1 %2\n").arg("Application", -30).arg("Time", -15);
+    out << QString(45, '-') << "\n";
 
     qint64 totalAllSeconds = 0;
     for (const auto &item : report) {
@@ -27,20 +28,21 @@ static void printReportTable(const QList<AppUsageSummary> &report)
         qint64 hours = item.totalSeconds / 3600;
         qint64 minutes = (item.totalSeconds % 3600) / 60;
 
-        std::string timeStr = std::to_string(hours) + "h " +
-                              (minutes < 10 ? "0" : "") + std::to_string(minutes) + "m";
+        QString timeStr = QString("%1h %2m")
+                              .arg(hours)
+                              .arg(minutes, 2, 10, QChar('0'));
 
-        std::cout << std::left << std::setw(30) << item.appId.toStdString()
-                  << std::setw(15) << timeStr << std::endl;
+        out << QString("%1 %2\n").arg(item.appId, -30).arg(timeStr, -15);
     }
 
-    std::cout << std::string(45, '-') << std::endl;
+    out << QString(45, '-') << "\n";
     qint64 totalHours = totalAllSeconds / 3600;
     qint64 totalMinutes = (totalAllSeconds % 3600) / 60;
-    std::string totalTimeStr = std::to_string(totalHours) + "h " +
-                               (totalMinutes < 10 ? "0" : "") + std::to_string(totalMinutes) + "m";
-    std::cout << std::left << std::setw(30) << "Total"
-              << std::setw(15) << totalTimeStr << std::endl;
+    QString totalTimeStr = QString("%1h %2m")
+                               .arg(totalHours)
+                               .arg(totalMinutes, 2, 10, QChar('0'));
+    out << QString("%1 %2\n").arg("Total", -30).arg(totalTimeStr, -15);
+    out.flush();
 }
 
 static bool fetchReportFromDaemon(QList<AppUsageSummary> &outReport)
@@ -110,8 +112,10 @@ int main(int argc, char *argv[])
     }
 
     if (cmd != "report") {
-        std::cerr << "Unknown command: " << cmd.toStdString() << std::endl;
-        std::cerr << "Available commands: report" << std::endl;
+        QTextStream err(stderr);
+        err << "Unknown command: " << cmd << "\n";
+        err << "Available commands: report\n";
+        err.flush();
         return 1;
     }
 
@@ -123,7 +127,9 @@ int main(int argc, char *argv[])
         if (db.open()) {
             report = db.getReportForToday();
         } else {
-            std::cerr << "Could not connect to noren daemon and failed to open database." << std::endl;
+            QTextStream err(stderr);
+            err << "Could not connect to noren daemon and failed to open database.\n";
+            err.flush();
             return 1;
         }
     }

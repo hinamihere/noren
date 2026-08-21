@@ -36,6 +36,12 @@ set_target_properties(noren-cli PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 
+if(MINGW)
+    target_link_options(noren-cli PRIVATE -mconsole)
+elseif(MSVC)
+    target_link_options(noren-cli PRIVATE /SUBSYSTEM:CONSOLE)
+endif()
+
 target_link_libraries(noren-cli
     PRIVATE
         Qt::Core
