@@ -20,6 +20,17 @@ struct AppUsageSummary {
     qint64 totalSeconds{0};
 };
 
+struct DayUsageSummary {
+    QString dayLabel;
+    qint64 totalSeconds{0};
+};
+
+struct DashboardData {
+    QList<AppUsageSummary> todayApps;
+    QList<DayUsageSummary> weeklyUsage;
+    qint64 todayTotalSeconds{0};
+};
+
 class Database : public QObject
 {
     Q_OBJECT
@@ -35,11 +46,14 @@ public:
     bool updateIntervalEnd(qint64 id, qint64 ended);
 
     QList<AppUsageSummary> getReportForToday();
+    QList<DayUsageSummary> getWeeklyUsage();
     void requestReportForToday();
+    void requestDashboardData();
     void recoverOrphanedIntervals();
 
 signals:
     void reportReady(const QList<AppUsageSummary> &report);
+    void dashboardDataReady(const DashboardData &data);
 
 private:
     QSqlDatabase m_db;

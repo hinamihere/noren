@@ -25,7 +25,7 @@ public slots:
     void refreshReport();
 
 private slots:
-    void onReportReady(const QList<AppUsageSummary> &report);
+    void onDashboardDataReady(const DashboardData &data);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -41,6 +41,7 @@ private:
     QLabel *m_heroSubtitleLabel{nullptr};
     CadenceChartWidget *m_cadenceWidget{nullptr};
     ZenMeterWidget *m_zenWidget{nullptr};
+    QLabel *m_zenSubtitleLabel{nullptr};
     AppBreakdownWidget *m_breakdownWidget{nullptr};
 
     void setupUi();

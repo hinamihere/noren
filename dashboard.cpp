@@ -8,12 +8,11 @@
 #include <QPainterPath>
 #include <QProgressBar>
 #include <QPushButton>
-#include <QScrollArea>
 #include <QVBoxLayout>
 #include <algorithm>
 
 // ---------------------------------------------------------------------------
-// ZenMeterWidget: Concentric circles + clay progress arc
+// ZenMeterWidget: Concentric circles + clay progress arc for Primary Focus %
 // ---------------------------------------------------------------------------
 class ZenMeterWidget : public QWidget
 {
@@ -69,11 +68,11 @@ protected:
     }
 
 private:
-    int m_percent{80};
+    int m_percent{0};
 };
 
 // ---------------------------------------------------------------------------
-// CadenceChartWidget: Session timeline bars with background seams
+// CadenceChartWidget: 7-Day Real Weekly Focus Bar Chart
 // ---------------------------------------------------------------------------
 class CadenceChartWidget : public QWidget
 {
@@ -84,9 +83,9 @@ public:
         setMinimumHeight(180);
     }
 
-    void setBarValues(const QVector<double> &values)
+    void setWeeklyData(const QList<DayUsageSummary> &weeklyData)
     {
-        m_values = values;
+        m_weeklyData = weeklyData;
         update();
     }
 
@@ -96,57 +95,69 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        const int h = height() - 32; // leave space for bottom axis
+        const int h = height() - 32; // leave space for day labels
         const int w = width();
 
-        // 1. Background Grid Seams
+        // 1. Background Grid Seam lines
         p.setPen(QPen(QColor(232, 228, 217, 30), 1, Qt::DashLine));
         for (int i = 1; i <= 3; ++i) {
             int y = (h / 4) * i;
             p.drawLine(0, y, w, y);
         }
 
-        // 2. Vertical Clay Bars
-        if (m_values.isEmpty()) {
-            m_values = {0.15, 0.35, 0.70, 0.90, 0.45, 0.20, 1.0, 0.60};
+        if (m_weeklyData.isEmpty()) {
+            p.setPen(QColor(158, 155, 145));
+            p.drawText(QRect(0, 0, w, h), Qt::AlignCenter, "No activity recorded yet");
+            return;
         }
 
-        const int barCount = m_values.size();
-        const double gap = 12.0;
-        const double totalGap = gap * (barCount + 1);
-        const double barWidth = std::max(8.0, (w - totalGap) / barCount);
-
-        for (int i = 0; i < barCount; ++i) {
-            double ratio = std::clamp(m_values[i], 0.05, 1.0);
-            double barH = (h - 10) * ratio;
-            double x = gap + i * (barWidth + gap);
-            double y = h - barH;
-
-            // Gradient intensity based on height
-            int alpha = static_cast<int>(80 + ratio * 175);
-            QColor barColor(230, 138, 92, alpha);
-
-            p.setPen(Qt::NoPen);
-            p.setBrush(barColor);
-            p.drawRoundedRect(QRectF(x, y, barWidth, barH), 2, 2);
+        // Calculate max seconds across days for relative scaling (minimum 30m for scale)
+        qint64 maxSecs = 1800;
+        for (const auto &day : m_weeklyData) {
+            if (day.totalSeconds > maxSecs) {
+                maxSecs = day.totalSeconds;
+            }
         }
 
-        // 3. Bottom Axis Labels
-        p.setPen(QColor(158, 155, 145));
-        QFont font = p.font();
-        font.setPixelSize(11);
-        font.setLetterSpacing(QFont::AbsoluteSpacing, 1);
-        p.setFont(font);
+        const int dayCount = m_weeklyData.size();
+        const double gap = 16.0;
+        const double totalGap = gap * (dayCount + 1);
+        const double barWidth = std::max(12.0, (w - totalGap) / dayCount);
 
-        const QString labels[] = {"8 AM", "12 PM", "4 PM", "8 PM"};
-        for (int i = 0; i < 4; ++i) {
-            int x = (w / 4) * i;
-            p.drawText(QRect(x, h + 8, w / 4, 20), (i == 0) ? Qt::AlignLeft : (i == 3 ? Qt::AlignRight : Qt::AlignCenter), labels[i]);
+        for (int i = 0; i < dayCount; ++i) {
+            const auto &day = m_weeklyData.at(i);
+            const double x = gap + i * (barWidth + gap);
+
+            if (day.totalSeconds > 0) {
+                const double ratio = std::clamp(static_cast<double>(day.totalSeconds) / maxSecs, 0.05, 1.0);
+                const double barH = (h - 12) * ratio;
+                const double y = h - barH;
+
+                const int alpha = static_cast<int>(120 + ratio * 135);
+                const QColor barColor(230, 138, 92, alpha);
+
+                p.setPen(Qt::NoPen);
+                p.setBrush(barColor);
+                p.drawRoundedRect(QRectF(x, y, barWidth, barH), 3, 3);
+            } else {
+                // Subtle flat zero baseline line for days without recorded tracking
+                p.setPen(QPen(QColor(232, 228, 217, 40), 2));
+                p.drawLine(QPointF(x, h - 1), QPointF(x + barWidth, h - 1));
+            }
+
+            // Day label below bar
+            p.setPen(day.dayLabel == "Today" ? QColor(230, 138, 92) : QColor(158, 155, 145));
+            QFont font = p.font();
+            font.setBold(day.dayLabel == "Today");
+            font.setPixelSize(11);
+            p.setFont(font);
+
+            p.drawText(QRectF(x - 8, h + 8, barWidth + 16, 20), Qt::AlignCenter, day.dayLabel);
         }
     }
 
 private:
-    QVector<double> m_values{0.15, 0.35, 0.70, 0.90, 0.45, 0.20, 1.0, 0.60};
+    QList<DayUsageSummary> m_weeklyData;
 };
 
 // ---------------------------------------------------------------------------
@@ -250,7 +261,7 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
     setupUi();
 
     if (m_db) {
-        connect(m_db, &Database::reportReady, this, &Dashboard::onReportReady);
+        connect(m_db, &Database::dashboardDataReady, this, &Dashboard::onDashboardDataReady);
     }
 
     m_refreshTimer.setInterval(30000);
@@ -342,7 +353,7 @@ void Dashboard::setupUi()
     mainLayout->setContentsMargins(28, 28, 28, 28);
     mainLayout->setSpacing(20);
 
-    // Top: Hero Card (Total Focus Time)
+    // Top: Hero Card (Total Recorded Screen Time Today)
     auto *heroCard = new QFrame(mainArea);
     heroCard->setObjectName("panelCard");
     heroCard->setMinimumHeight(130);
@@ -350,7 +361,7 @@ void Dashboard::setupUi()
     heroLayout->setContentsMargins(24, 20, 24, 20);
     heroLayout->setSpacing(6);
 
-    auto *heroTag = new QLabel("■  TODAY'S DEEP WORK", heroCard);
+    auto *heroTag = new QLabel("■  TODAY'S SCREEN TIME", heroCard);
     heroTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;");
 
     m_heroTimeLabel = new QLabel("0<font size='5' color='#9e9b91'>h</font> 00<font size='5' color='#9e9b91'>m</font>", heroCard);
@@ -365,19 +376,19 @@ void Dashboard::setupUi()
 
     mainLayout->addWidget(heroCard);
 
-    // Bottom Grid: Left (Cadence Chart) + Right (Consistency & Breakdown)
+    // Bottom Grid: Left (Weekly Activity) + Right (Primary Focus & Breakdown)
     auto *gridWidget = new QWidget(mainArea);
     auto *gridLayout = new QGridLayout(gridWidget);
     gridLayout->setContentsMargins(0, 0, 0, 0);
     gridLayout->setSpacing(20);
 
-    // Middle Left: Session Cadence
+    // Middle Left: Weekly Activity Chart (Real 7-day data)
     auto *cadenceCard = new QFrame(gridWidget);
     cadenceCard->setObjectName("panelCard");
     auto *cadenceLayout = new QVBoxLayout(cadenceCard);
     cadenceLayout->setContentsMargins(24, 20, 24, 20);
 
-    auto *cadenceTag = new QLabel("SESSION CADENCE", cadenceCard);
+    auto *cadenceTag = new QLabel("WEEKLY ACTIVITY", cadenceCard);
     cadenceTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 8px;");
     m_cadenceWidget = new CadenceChartWidget(cadenceCard);
 
@@ -386,26 +397,26 @@ void Dashboard::setupUi()
 
     gridLayout->addWidget(cadenceCard, 0, 0, 2, 1);
 
-    // Middle Right Top: Consistency
+    // Middle Right Top: Primary Focus (% of today spent on top app)
     auto *zenCard = new QFrame(gridWidget);
     zenCard->setObjectName("panelCard");
     auto *zenLayout = new QVBoxLayout(zenCard);
     zenLayout->setContentsMargins(24, 16, 24, 16);
 
-    auto *zenTag = new QLabel("CONSISTENCY", zenCard);
+    auto *zenTag = new QLabel("PRIMARY FOCUS", zenCard);
     zenTag->setStyleSheet("color: #9e9b91; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;");
     m_zenWidget = new ZenMeterWidget(zenCard);
-    auto *zenSub = new QLabel("Active Session", zenCard);
-    zenSub->setAlignment(Qt::AlignCenter);
-    zenSub->setStyleSheet("color: #9e9b91; font-size: 12px;");
+    m_zenSubtitleLabel = new QLabel("No activity today", zenCard);
+    m_zenSubtitleLabel->setAlignment(Qt::AlignCenter);
+    m_zenSubtitleLabel->setStyleSheet("color: #9e9b91; font-size: 12px;");
 
     zenLayout->addWidget(zenTag);
     zenLayout->addWidget(m_zenWidget, 0, Qt::AlignCenter);
-    zenLayout->addWidget(zenSub);
+    zenLayout->addWidget(m_zenSubtitleLabel);
 
     gridLayout->addWidget(zenCard, 0, 1);
 
-    // Middle Right Bottom: App Breakdown
+    // Middle Right Bottom: Top Applications Breakdown
     auto *breakdownCard = new QFrame(gridWidget);
     breakdownCard->setObjectName("panelCard");
     auto *breakdownLayout = new QVBoxLayout(breakdownCard);
@@ -432,17 +443,14 @@ void Dashboard::setupUi()
 void Dashboard::refreshReport()
 {
     if (m_db) {
-        m_db->requestReportForToday();
+        m_db->requestDashboardData();
     }
 }
 
-void Dashboard::onReportReady(const QList<AppUsageSummary> &report)
+void Dashboard::onDashboardDataReady(const DashboardData &data)
 {
-    qint64 totalSeconds = 0;
-    for (const auto &item : report) {
-        totalSeconds += item.totalSeconds;
-    }
-
+    // 1. Hero Card: Total Recorded Screen Time Today
+    const qint64 totalSeconds = data.todayTotalSeconds;
     const qint64 hours = totalSeconds / 3600;
     const qint64 minutes = (totalSeconds % 3600) / 60;
 
@@ -452,22 +460,36 @@ void Dashboard::onReportReady(const QList<AppUsageSummary> &report)
             .arg(minutes, 2, 10, QChar('0'))
     );
 
-    if (report.isEmpty()) {
+    if (data.todayApps.isEmpty()) {
         m_heroSubtitleLabel->setText("No tracked window activity recorded today yet.");
     } else {
-        m_heroSubtitleLabel->setText(QString("%1 application(s) actively recorded today").arg(report.size()));
+        m_heroSubtitleLabel->setText(QString("Total active window time across %1 application(s) today").arg(data.todayApps.size()));
     }
 
-    // Update Breakdown
+    // 2. Weekly Activity Chart (Real 7-day data)
+    if (m_cadenceWidget) {
+        m_cadenceWidget->setWeeklyData(data.weeklyUsage);
+    }
+
+    // 3. Primary Focus Zen Meter (Top App % of today)
+    if (m_zenWidget && m_zenSubtitleLabel) {
+        if (!data.todayApps.isEmpty() && totalSeconds > 0) {
+            const auto &topApp = data.todayApps.first();
+            const int percent = static_cast<int>((topApp.totalSeconds * 100) / totalSeconds);
+            m_zenWidget->setPercentage(percent);
+
+            const qint64 topHours = topApp.totalSeconds / 3600;
+            const qint64 topMins = (topApp.totalSeconds % 3600) / 60;
+            m_zenSubtitleLabel->setText(QString("%1 (%2h %3m)").arg(topApp.appId).arg(topHours).arg(topMins, 2, 10, QChar('0')));
+        } else {
+            m_zenWidget->setPercentage(0);
+            m_zenSubtitleLabel->setText("No activity today");
+        }
+    }
+
+    // 4. Top Applications Breakdown
     if (m_breakdownWidget) {
-        m_breakdownWidget->updateApps(report, totalSeconds);
-    }
-
-    // Update Zen consistency meter based on focus target (e.g. 4h target)
-    if (m_zenWidget) {
-        const double targetSeconds = 4 * 3600.0;
-        int score = static_cast<int>((totalSeconds / targetSeconds) * 100);
-        m_zenWidget->setPercentage(std::clamp(score, 10, 100));
+        m_breakdownWidget->updateApps(data.todayApps, totalSeconds);
     }
 }
 
