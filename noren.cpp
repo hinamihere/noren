@@ -15,9 +15,10 @@
 Noren::Noren(QObject *parent)
     : QObject(parent)
     , m_db(std::make_unique<Database>(this))
-    , m_dashboard(std::make_unique<Dashboard>())
 {
     m_db->open();
+
+    m_dashboard = std::make_unique<Dashboard>(m_db.get());
 
     m_focusTracker = std::make_unique<EventTracker>(m_db.get(), this);
     qApp->installNativeEventFilter(m_focusTracker.get());

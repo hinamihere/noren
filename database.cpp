@@ -6,6 +6,8 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QThread>
+#include <QThreadPool>
 
 Database::Database(QObject *parent)
     : QObject(parent)
@@ -115,11 +117,6 @@ bool Database::updateIntervalEnd(qint64 id, qint64 ended)
     return true;
 }
 
-bool Database::writeInterval(const QString &appId, const QString &title, qint64 started, qint64 ended, int idle)
-{
-    return startInterval(appId, title, started, ended, idle) > 0;
-}
-
 QList<IntervalRecord> Database::getIntervalsForToday()
 {
     QList<IntervalRecord> records;
@@ -189,6 +186,48 @@ QList<AppUsageSummary> Database::getReportForToday()
     }
 
     return summaries;
+}
+
+void Database::requestReportForToday()
+{
+    const QString dbPath = m_db.databaseName();
+    QThreadPool::globalInstance()->start([this, dbPath]() {
+        const QString connName = QString("async_report_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+        QList<AppUsageSummary> summaries;
+        {
+            QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connName);
+            threadDb.setDatabaseName(dbPath);
+            if (threadDb.open()) {
+                const qint64 todayStart = QDateTime::currentDateTime().date().startOfDay().toSecsSinceEpoch();
+                QSqlQuery query(threadDb);
+                query.prepare(R"(
+                    SELECT app_id, SUM(ended - started) as total_seconds
+                    FROM intervals
+                    WHERE started >= :todayStart
+                    GROUP BY app_id
+                    ORDER BY total_seconds DESC
+                )");
+                query.bindValue(":todayStart", todayStart);
+
+                if (query.exec()) {
+                    while (query.next()) {
+                        AppUsageSummary summary;
+                        summary.appId = query.value("app_id").toString();
+                        summary.totalSeconds = query.value("total_seconds").toLongLong();
+                        summaries.append(summary);
+                    }
+                } else {
+                    qWarning() << "Async report query failed:" << query.lastError().text();
+                }
+                threadDb.close();
+            }
+        }
+        QSqlDatabase::removeDatabase(connName);
+
+        QMetaObject::invokeMethod(this, [this, summaries]() {
+            emit reportReady(summaries);
+        }, Qt::QueuedConnection);
+    });
 }
 
 void Database::recoverOrphanedIntervals()
