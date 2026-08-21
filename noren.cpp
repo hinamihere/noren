@@ -25,7 +25,17 @@ Noren::Noren(QObject *parent)
     connect(m_focusTracker.get(), &EventTracker::focusChanged, this, &Noren::onFocusChanged);
 
     m_trayIcon = new QSystemTrayIcon(this);
-    m_trayIcon->setIcon(QIcon::fromTheme("dialog-information"));
+    QIcon appIcon;
+    if (QFile::exists(":/noren.jpg")) {
+        appIcon = QIcon(":/noren.jpg");
+    } else if (QFile::exists("noren.jpg")) {
+        appIcon = QIcon("noren.jpg");
+    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
+        appIcon = QIcon(QCoreApplication::applicationDirPath() + "/noren.jpg");
+    } else {
+        appIcon = QIcon::fromTheme("dialog-information");
+    }
+    m_trayIcon->setIcon(appIcon);
     m_trayIcon->setToolTip("noren");
 
     auto *menu = new QMenu();

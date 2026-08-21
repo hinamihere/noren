@@ -1,10 +1,14 @@
 #include "dashboard.h"
 
+#include <QCoreApplication>
+#include <QFile>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QPainter>
+#include <QPixmap>
 #include <QProgressBar>
 #include <QResizeEvent>
 #include <QScrollBar>
@@ -110,17 +114,14 @@ protected:
                 const qint64 totalSecs = day.totalSeconds;
                 const qint64 hours = totalSecs / 3600;
                 const qint64 minutes = (totalSecs % 3600) / 60;
-                const qint64 seconds = totalSecs % 60;
 
                 QString timeText;
                 if (hours > 0) {
                     timeText = QString("%1h %2m").arg(hours).arg(minutes, 2, 10, QChar('0'));
                 } else if (minutes > 0) {
-                    timeText = QString("%1m %2s").arg(minutes).arg(seconds, 2, 10, QChar('0'));
-                } else if (seconds > 0) {
-                    timeText = QString("%1s").arg(seconds);
+                    timeText = QString("%1m").arg(minutes);
                 } else {
-                    timeText = "0m (No activity)";
+                    timeText = "0m";
                 }
 
                 const QString tip = QString("<b>%1</b>: %2").arg(day.dayLabel, timeText);
@@ -199,15 +200,15 @@ protected:
 
                 int alpha = static_cast<int>(120 + ratio * 135);
                 if (isHovered) {
-                    alpha = 255;
+                    alpha = std::min(240, alpha + 30);
                 }
-                const QColor barColor = isHovered ? QColor(255, 181, 161, alpha) : QColor(230, 138, 92, alpha);
+                const QColor barColor(230, 138, 92, alpha);
 
-                p.setPen(isHovered ? QPen(QColor(255, 255, 255, 160), 1) : Qt::NoPen);
+                p.setPen(Qt::NoPen);
                 p.setBrush(barColor);
                 p.drawRoundedRect(QRectF(x, y, barWidth, barH), 2, 2);
             } else {
-                p.setPen(QPen(isHovered ? QColor(255, 181, 161, 160) : QColor(232, 228, 217, 40), isHovered ? 2.5 : 1.5));
+                p.setPen(QPen(isHovered ? QColor(230, 138, 92, 140) : QColor(232, 228, 217, 40), 1.5));
                 p.drawLine(QPointF(x, h - 1), QPointF(x + barWidth, h - 1));
             }
 
@@ -344,6 +345,19 @@ Dashboard::Dashboard(Database *db, QWidget *parent)
     , m_db(db)
 {
     setWindowTitle("NOREN | 暖簾 — Stats");
+
+    QIcon appIcon;
+    if (QFile::exists(":/noren.jpg")) {
+        appIcon = QIcon(":/noren.jpg");
+    } else if (QFile::exists("noren.jpg")) {
+        appIcon = QIcon("noren.jpg");
+    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
+        appIcon = QIcon(QCoreApplication::applicationDirPath() + "/noren.jpg");
+    }
+    if (!appIcon.isNull()) {
+        setWindowIcon(appIcon);
+    }
+
     resize(720, 480);
     setMinimumSize(560, 360);
 
@@ -431,6 +445,23 @@ void Dashboard::setupUi()
     auto *sideLayout = new QVBoxLayout(sideNav);
     sideLayout->setContentsMargins(14, 20, 14, 16);
     sideLayout->setSpacing(6);
+
+    // Optional Logo Pixmap
+    QPixmap logoPix;
+    if (QFile::exists(":/noren.jpg")) {
+        logoPix.load(":/noren.jpg");
+    } else if (QFile::exists("noren.jpg")) {
+        logoPix.load("noren.jpg");
+    } else if (QFile::exists(QCoreApplication::applicationDirPath() + "/noren.jpg")) {
+        logoPix.load(QCoreApplication::applicationDirPath() + "/noren.jpg");
+    }
+
+    if (!logoPix.isNull()) {
+        auto *logoLabel = new QLabel(sideNav);
+        logoLabel->setPixmap(logoPix.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        logoLabel->setStyleSheet("margin-bottom: 2px;");
+        sideLayout->addWidget(logoLabel);
+    }
 
     // Brand Title
     auto *brandTitle = new QLabel("NOREN | 暖簾", sideNav);

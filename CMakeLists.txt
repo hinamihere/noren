@@ -15,6 +15,13 @@ qt_add_executable(noren
     dashboard.h dashboard.cpp
 )
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/noren.jpg")
+    qt_add_resources(noren "app_resources"
+        PREFIX "/"
+        FILES noren.jpg
+    )
+endif()
+
 target_link_libraries(noren
     PRIVATE
         Qt::Core
