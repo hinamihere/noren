@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QDebug>
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
