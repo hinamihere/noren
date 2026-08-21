@@ -1,6 +1,7 @@
 #include "noren.h"
 #include "dashboard.h"
 #include "eventtracker.h"
+#include "database.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -9,9 +10,12 @@
 
 Noren::Noren(QObject *parent)
     : QObject(parent)
+    , m_db(std::make_unique<Database>(this))
     , m_dashboard(std::make_unique<Dashboard>())
-    , m_focusTracker(std::make_unique<EventTracker>(this))
 {
+    m_db->open();
+
+    m_focusTracker = std::make_unique<EventTracker>(m_db.get(), this);
     qApp->installNativeEventFilter(m_focusTracker.get());
     connect(m_focusTracker.get(), &EventTracker::focusChanged, this, &Noren::onFocusChanged);
 

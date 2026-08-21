@@ -1,0 +1,179 @@
+#include "database.h"
+
+#include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QStandardPaths>
+
+Database::Database(QObject *parent)
+    : QObject(parent)
+{
+}
+
+Database::~Database()
+{
+    close();
+}
+
+bool Database::open(const QString &path)
+{
+    QString dbPath = path;
+    if (dbPath.isEmpty()) {
+        const QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QDir().mkpath(appDataDir);
+        dbPath = appDataDir + "/noren.db";
+    }
+
+    m_db = QSqlDatabase::addDatabase("QSQLITE");
+    m_db.setDatabaseName(dbPath);
+
+    if (!m_db.open()) {
+        qWarning() << "Failed to open SQLite database at" << dbPath << ":" << m_db.lastError().text();
+        return false;
+    }
+
+    QSqlQuery query;
+    const QString createTableSql = R"(
+        CREATE TABLE IF NOT EXISTS intervals (
+            id INTEGER PRIMARY KEY,
+            app_id TEXT NOT NULL,
+            title TEXT,
+            started INTEGER NOT NULL,
+            ended INTEGER NOT NULL,
+            idle INTEGER NOT NULL DEFAULT 0
+        );
+    )";
+
+    if (!query.exec(createTableSql)) {
+        qWarning() << "Failed to create intervals table:" << query.lastError().text();
+        return false;
+    }
+
+    const QString createIndexSql = R"(
+        CREATE INDEX IF NOT EXISTS idx_intervals_started ON intervals(started);
+    )";
+
+    if (!query.exec(createIndexSql)) {
+        qWarning() << "Failed to create index on intervals(started):" << query.lastError().text();
+        return false;
+    }
+
+    recoverOrphanedIntervals();
+    return true;
+}
+
+void Database::close()
+{
+    if (m_db.isOpen()) {
+        m_db.close();
+    }
+}
+
+qint64 Database::startInterval(const QString &appId, const QString &title, qint64 started, qint64 ended, int idle)
+{
+    if (!m_db.isOpen()) {
+        return -1;
+    }
+
+    QSqlQuery query;
+    query.prepare(R"(
+        INSERT INTO intervals (app_id, title, started, ended, idle)
+        VALUES (:app_id, :title, :started, :ended, :idle)
+    )");
+    query.bindValue(":app_id", appId);
+    query.bindValue(":title", title);
+    query.bindValue(":started", started);
+    query.bindValue(":ended", ended);
+    query.bindValue(":idle", idle);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to insert interval:" << query.lastError().text();
+        return -1;
+    }
+
+    return query.lastInsertId().toLongLong();
+}
+
+bool Database::updateIntervalEnd(qint64 id, qint64 ended)
+{
+    if (!m_db.isOpen() || id <= 0) {
+        return false;
+    }
+
+    QSqlQuery query;
+    query.prepare("UPDATE intervals SET ended = :ended WHERE id = :id");
+    query.bindValue(":ended", ended);
+    query.bindValue(":id", id);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to update interval end:" << query.lastError().text();
+        return false;
+    }
+
+    return true;
+}
+
+bool Database::writeInterval(const QString &appId, const QString &title, qint64 started, qint64 ended, int idle)
+{
+    return startInterval(appId, title, started, ended, idle) > 0;
+}
+
+QList<IntervalRecord> Database::getIntervalsForToday()
+{
+    QList<IntervalRecord> records;
+    if (!m_db.isOpen()) {
+        return records;
+    }
+
+    const qint64 todayStart = QDateTime::currentDateTime().date().startOfDay().toSecsSinceEpoch();
+
+    QSqlQuery query;
+    query.prepare(R"(
+        SELECT id, app_id, title, started, ended, idle
+        FROM intervals
+        WHERE started >= :todayStart
+        ORDER BY started ASC
+    )");
+    query.bindValue(":todayStart", todayStart);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to query today's intervals:" << query.lastError().text();
+        return records;
+    }
+
+    while (query.next()) {
+        IntervalRecord record;
+        record.id = query.value("id").toLongLong();
+        record.appId = query.value("app_id").toString();
+        record.title = query.value("title").toString();
+        record.started = query.value("started").toLongLong();
+        record.ended = query.value("ended").toLongLong();
+        record.idle = query.value("idle").toInt();
+        records.append(record);
+    }
+
+    return records;
+}
+
+void Database::recoverOrphanedIntervals()
+{
+    if (!m_db.isOpen()) {
+        return;
+    }
+
+    // Close any unclosed intervals (ended == 0 or ended < started) at started + 60s
+    QSqlQuery query;
+    const QString recoverySql = R"(
+        UPDATE intervals
+        SET ended = started + 60
+        WHERE ended = 0 OR ended < started;
+    )";
+
+    if (!query.exec(recoverySql)) {
+        qWarning() << "Failed to run startup recovery for orphaned intervals:" << query.lastError().text();
+    } else if (query.numRowsAffected() > 0) {
+        qDebug() << "Recovered" << query.numRowsAffected() << "orphaned interval(s).";
+    }
+}

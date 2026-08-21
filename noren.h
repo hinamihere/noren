@@ -7,6 +7,7 @@
 class QSystemTrayIcon;
 class Dashboard;
 class EventTracker;
+class Database;
 
 class Noren : public QObject
 {
@@ -21,6 +22,7 @@ private slots:
     void onFocusChanged(quint32 pid, const QString &title);
 
 private:
+    std::unique_ptr<Database> m_db;
     std::unique_ptr<Dashboard> m_dashboard;
     std::unique_ptr<EventTracker> m_focusTracker;
     QSystemTrayIcon *m_trayIcon{nullptr};
