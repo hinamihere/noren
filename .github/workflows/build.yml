@@ -17,7 +17,7 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.5.0'
-          modules: 'qtsvg'
+          arch: 'win64_mingw'
 
       - name: Build
         run: |
