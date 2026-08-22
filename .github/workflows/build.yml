@@ -26,8 +26,8 @@ jobs:
 
       - name: Deploy Qt DLLs
         run: |
-          windeployqt build/noren.exe
-          windeployqt build/noren-cli.exe
+          windeployqt --no-translations build/noren.exe
+          windeployqt --no-translations build/noren-cli.exe
 
       - name: Package
         run: |
