@@ -14,6 +14,7 @@ qt_add_executable(noren
     noren.h
     dashboard.h dashboard.cpp
     utils.h
+    config.h config.cpp
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/noren.jpg")
@@ -43,6 +44,7 @@ endif()
 qt_add_executable(noren-cli
     cli_main.cpp
     database.h database.cpp
+    config.h config.cpp
 )
 
 set_target_properties(noren-cli PROPERTIES
